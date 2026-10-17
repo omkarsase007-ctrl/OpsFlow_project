@@ -1,0 +1,119 @@
+// Prisma Schema for OpsFlow: Operations Under Pressure
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id          String     @id @default(cuid())
+  key         String     @unique // e.g. "PAYMENTS", "INFRA", "SUPPORT", "SECURITY"
+  name        String
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  users       User[]
+  workItems   WorkItem[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("MEMBER") // "MEMBER" | "TEAM_LEAD" | "ADMIN"
+  avatar    String?
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdWorkItems  WorkItem[]    @relation("CreatedBy")
+  assignedWorkItems WorkItem[]    @relation("AssignedTo")
+  comments          Comment[]
+  activities        ActivityLog[]
+  approvalsGiven    WorkItem[]    @relation("ApprovedBy")
+}
+
+model WorkItem {
+  id               String         @id @default(cuid())
+  key              String         @unique // e.g. "OPS-1001", "OPS-1002"
+  title            String
+  description      String
+  type             String         @default("GENERAL_OPERATIONS") // INCIDENT, CUSTOMER_ISSUE, etc.
+  status           String         @default("OPEN") // OPEN, IN_PROGRESS, BLOCKED, IN_REVIEW, RESOLVED, CLOSED
+  priority         String         @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  dueDate          DateTime?
+
+  // Optimistic Concurrency Control (OCC)
+  version          Int            @default(1)
+
+  // Team association & resource-level authorization
+  teamId           String
+  team             Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // Ownership & Assignment
+  creatorId        String
+  creator          User           @relation("CreatedBy", fields: [creatorId], references: [id], onDelete: Cascade)
+  assigneeId       String?
+  assignee         User?          @relation("AssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  // Approval Workflow
+  requiresApproval Boolean        @default(false)
+  approvalStatus   String         @default("NONE") // NONE, PENDING, APPROVED, REJECTED
+  approvedById     String?
+  approvedBy       User?          @relation("ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?
+  rejectionReason  String?
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  comments         Comment[]
+  activities       ActivityLog[]
+
+  @@index([teamId, status])
+  @@index([assigneeId, status])
+  @@index([priority, updatedAt])
+  @@index([status, priority])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  workItemId String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@index([workItemId, createdAt])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  workItemId String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action     String   // CREATED, ASSIGNED, STATUS_CHANGED, etc.
+  details    String   // JSON string with change metadata
+  createdAt  DateTime @default(now())
+
+  @@index([workItemId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model IdempotencyRecord {
+  key        String   @id
+  userId     String
+  action     String
+  response   String   // Cached JSON response string
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}

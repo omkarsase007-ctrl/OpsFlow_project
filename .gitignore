@@ -1,0 +1,36 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js build output
+/.next/
+/out/
+
+# Production build artifacts
+build
+dist
+
+# Environment variables
+.env*.local
+# keep .env and .env.example in repo if needed for local test, or ignore real secrets
+*.pem
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# SQLite Database (for fresh deployment on cloud)
+dev.db-journal
+dev.db-wal
+dev.db-shm
+
+# OS Files
+.DS_Store
+Thumbs.db

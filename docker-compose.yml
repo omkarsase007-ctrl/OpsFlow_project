@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  opsflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opsflow-app
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./dev.db
+      - NEXTAUTH_SECRET=opsflow-production-secret-change-in-prod
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    restart: unless-stopped
